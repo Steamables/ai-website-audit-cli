@@ -2,8 +2,26 @@
 
 from __future__ import annotations
 
+import time
+import warnings
 from typing import TypedDict
 
+from google.api_core import exceptions as google_exceptions
+
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore", FutureWarning)
+    import google.generativeai as genai
+
+from google.generativeai import types as genai_types
+
+from config import (
+    AI_MAX_OUTPUT_TOKENS,
+    AI_RATE_LIMIT_RETRY_DELAY_SECONDS,
+    AI_RETRY_LIMIT,
+    AI_TIMEOUT_SECONDS,
+    GEMINI_API_KEY,
+    GEMINI_MODEL,
+)
 from scraper import MetricsDict
 
 
@@ -21,6 +39,12 @@ class InsightsDict(TypedDict):
     ux_concerns: str
     recommendations: list[RecommendationDict]
     error: str | None
+
+
+if not GEMINI_API_KEY:
+    raise ValueError("GEMINI_API_KEY is not set. Add it to the local .env file before running AI analysis.")
+
+genai.configure(api_key=GEMINI_API_KEY)
 
 
 def analyse(metrics: MetricsDict) -> InsightsDict:
@@ -86,7 +110,40 @@ Return ONLY this JSON structure and do not add any extra keys:
 
 def _call_api(system_prompt: str, user_prompt: str) -> str:
     """Call the configured model and return the raw response text."""
-    raise NotImplementedError
+    model = genai.GenerativeModel(
+        model_name=GEMINI_MODEL,
+        system_instruction=system_prompt,
+        generation_config=genai_types.GenerationConfig(
+            candidate_count=1,
+            max_output_tokens=AI_MAX_OUTPUT_TOKENS,
+            response_mime_type="application/json",
+        ),
+    )
+
+    for attempt in range(AI_RETRY_LIMIT + 1):
+        try:
+            response = model.generate_content(
+                user_prompt,
+                request_options={"timeout": AI_TIMEOUT_SECONDS},
+            )
+            return _response_text(response)
+        except google_exceptions.TooManyRequests as exc:
+            if attempt >= AI_RETRY_LIMIT:
+                raise RuntimeError("Rate limited") from exc
+            time.sleep(AI_RATE_LIMIT_RETRY_DELAY_SECONDS)
+        except google_exceptions.DeadlineExceeded as exc:
+            raise TimeoutError("API timeout") from exc
+        except (
+            google_exceptions.InternalServerError,
+            google_exceptions.ServiceUnavailable,
+        ) as exc:
+            status_code = getattr(exc, "code", "unknown")
+            raise RuntimeError(f"Gemini API error {status_code}") from exc
+        except google_exceptions.GoogleAPIError as exc:
+            status_code = getattr(exc, "code", "unknown")
+            raise RuntimeError(f"Gemini API error {status_code}") from exc
+
+    raise RuntimeError("Rate limited")
 
 
 def _parse_response(raw_response: str) -> InsightsDict:
@@ -116,3 +173,12 @@ def _preview_texts(values: list[str], limit: int) -> str:
     """Format a short readable preview list for prompt injection."""
     preview = ", ".join(values[:limit])
     return preview or "none detected"
+
+
+def _response_text(response: object) -> str:
+    """Return the raw model text or raise if no text payload is present."""
+    text = getattr(response, "text", "")
+    if isinstance(text, str) and text.strip():
+        return text.strip()
+
+    raise RuntimeError("Gemini API returned an empty response")
