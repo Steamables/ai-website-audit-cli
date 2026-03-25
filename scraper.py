@@ -38,6 +38,16 @@ _CTA_KEYWORDS = (
     "talk to sales",
     "try",
 )
+_CTA_BLOCKLIST = {
+    "back",
+    "close",
+    "menu",
+    "next",
+    "open menu",
+    "previous",
+    "prev",
+}
+_CTA_MAX_WORDS = 6
 
 
 class MetricsDict(TypedDict):
@@ -182,16 +192,17 @@ def _extract_cta_texts(soup: BeautifulSoup) -> list[str]:
     cta_texts: list[str] = []
 
     for button in soup.find_all("button"):
-        text = _element_label(button)
-        if text:
+        text = _cta_candidate_text(button)
+        button_type = _clean_text((button.get("type") or "")).casefold()
+        if text and (_is_cta_text(text) or button_type == "submit"):
             cta_texts.append(text)
 
     for anchor in soup.find_all("a", href=True):
-        text = _element_label(anchor)
+        text = _cta_candidate_text(anchor)
         if text and _is_cta_text(text):
             cta_texts.append(text)
 
-    return cta_texts
+    return list(dict.fromkeys(cta_texts))
 
 
 def _element_label(tag: Tag) -> str:
@@ -204,8 +215,27 @@ def _element_label(tag: Tag) -> str:
     return ""
 
 
+def _cta_candidate_text(tag: Tag) -> str:
+    """Return a cleaned CTA candidate only if it passes basic quality filters."""
+    text = _element_label(tag)
+    if not text:
+        return ""
+
+    normalized = text.casefold()
+    if normalized in _CTA_BLOCKLIST:
+        return ""
+
+    if len(text.split()) > _CTA_MAX_WORDS:
+        return ""
+
+    return text
+
+
 def _is_cta_text(text: str) -> bool:
     """Apply a simple action-oriented heuristic to anchor text."""
+    if not text:
+        return False
+
     normalized = text.casefold()
     return any(keyword in normalized for keyword in _CTA_KEYWORDS)
 
