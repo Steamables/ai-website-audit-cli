@@ -50,5 +50,5 @@ OUTPUT_DIR: Final[Path] = BASE_DIR / "output"
 LATEST_JSON_PATH: Final[Path] = OUTPUT_DIR / "latest.json"
 LATEST_TEXT_PATH: Final[Path] = OUTPUT_DIR / "latest.txt"
 
-GEMINI_MODEL: Final[str] = os.getenv("GEMINI_MODEL", "gemini-2.5-flash").strip()
+GEMINI_MODEL: Final[str] = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite").strip()
 GEMINI_API_KEY: Final[str] = os.getenv("GEMINI_API_KEY", "").strip()
