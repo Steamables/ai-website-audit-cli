@@ -10,6 +10,14 @@ This project was built to satisfy the assignment requirements defined in the doc
 - prompt logging / reasoning trace visibility
 - practical trade-offs for modern JS-heavy websites
 
+## Start Here
+
+If you are trying to set up the environment and run the tool, go directly to:
+
+`docs/Setup_Guide.md`
+
+That guide contains the exact install commands, `.env` setup, Playwright browser install step, run commands, output-file locations, and common troubleshooting notes.
+
 ## What the Tool Does
 
 Given a single URL, the tool:
