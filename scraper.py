@@ -94,9 +94,7 @@ def scrape(url: str) -> MetricsDict:
     try:
         rendered_html = _fetch_playwright(url)
     except FetchError as exc:
-        error = str(exc)
-        fetch_method = "requests" if error.startswith("Playwright not available") else "playwright"
-        return _empty_metrics(url, error, fetch_method=fetch_method)
+        return _empty_metrics(url, str(exc), fetch_method="playwright")
 
     rendered_metrics = _extract(rendered_html, url)
     if rendered_metrics["error"] is not None:
@@ -147,20 +145,19 @@ def _fetch_playwright(url: str) -> str:
             "Playwright not available - install with: playwright install chromium"
         ) from exc
 
-    browser = None
     try:
         with sync_playwright() as playwright:
             browser = playwright.chromium.launch(headless=True)
-            page = browser.new_page(user_agent=CHROME_UA)
-            page.goto(url, wait_until="networkidle", timeout=PLAYWRIGHT_TIMEOUT_MS)
-            html = page.content().strip()
+            try:
+                page = browser.new_page(user_agent=CHROME_UA)
+                page.goto(url, wait_until="networkidle", timeout=PLAYWRIGHT_TIMEOUT_MS)
+                html = page.content().strip()
+            finally:
+                browser.close()
     except PlaywrightError as exc:
         raise FetchError(f"Playwright fetch failed: {exc}") from exc
     except Exception as exc:
         raise FetchError(f"Playwright fetch failed: {exc}") from exc
-    finally:
-        if browser is not None:
-            browser.close()
 
     if not html:
         raise FetchError("Could not extract meaningful content")
