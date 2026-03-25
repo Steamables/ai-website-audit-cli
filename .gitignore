@@ -1,0 +1,7 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+prompt_logs/run.md
+output/latest.json
+output/latest.txt
