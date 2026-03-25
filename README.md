@@ -282,7 +282,7 @@ Retrying once helps reject generic AI output without overcomplicating the system
 
 The current implementation uses Gemini through `google-generativeai`, which is simple for this assignment but can hit rate limits when many runs are made in a short period.
 
-## What I Would Improve With More Time
+## What Would You Improve With More Time
 
 - add better operational logging such as retry count and execution time per run
 - add a small test suite for parser and AI validation edge cases
