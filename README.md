@@ -300,3 +300,14 @@ This project intentionally prioritizes clarity, grounded AI behavior, and predic
 
 - `docs/Setup_Guide.md` for detailed environment setup and usage
 - `prompt_logs/example_run.md` for the committed prompt-log deliverable
+
+## AI Reference Links
+
+This project was implemented as an AI-native assignment with support from external AI planning and workflow references. These links are included as supporting context only:
+
+- Claude AI user manual and workflow architecture:
+  https://claude.ai/share/800c9cba-35b7-42bf-9221-c0377a01dc39
+- ChatGPT AI-native thoughts and strategies:
+  https://chatgpt.com/share/69c39495-e2a8-83a6-8c10-c87ac4863b1e
+- ChatGPT AI tool assignment strategy:
+  https://chatgpt.com/share/69c39613-972c-83a7-ac9e-db795e31c6ca
