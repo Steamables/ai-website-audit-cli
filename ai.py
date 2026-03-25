@@ -103,20 +103,13 @@ _LAST_PARSED_STATUS = "not_run"
 _LAST_PARSED_OUTPUT = ""
 
 
-if not GEMINI_API_KEY:
-    raise ValueError("GEMINI_API_KEY is not set. Add it to the local .env file before running AI analysis.")
-
-genai.configure(api_key=GEMINI_API_KEY)
-
-
 def analyse(metrics: MetricsDict) -> InsightsDict:
     """Generate grounded insights from extracted metrics."""
     global _LAST_PARSED_OUTPUT, _LAST_PARSED_STATUS
 
     system_prompt = _build_system_prompt()
     user_prompt = _build_user_prompt(metrics)
-    final_user_prompt = user_prompt
-    raw_response = ""
+    attempts_log: list[dict[str, str]] = []
     insights = _empty_insights("AI analysis failed before completion")
 
     try:
@@ -124,16 +117,35 @@ def analyse(metrics: MetricsDict) -> InsightsDict:
             current_user_prompt = (
                 user_prompt if attempt == 0 else _build_retry_user_prompt(user_prompt, insights["error"] or "")
             )
-            final_user_prompt = current_user_prompt
+            raw_response = ""
+            attempt_error = ""
 
             try:
                 raw_response = _call_api(system_prompt, current_user_prompt)
             except (RuntimeError, TimeoutError) as exc:
-                insights = _empty_insights(str(exc))
+                attempt_error = str(exc)
+                insights = _empty_insights(attempt_error)
+                attempts_log.append(
+                    {
+                        "attempt": str(attempt + 1),
+                        "user_prompt": current_user_prompt,
+                        "raw_response": raw_response or "(empty response)",
+                        "result": attempt_error,
+                    }
+                )
                 break
 
             insights = _parse_response(raw_response)
             quality_error = None if insights["error"] else _quality_error(insights, metrics)
+            attempt_result = insights["error"] or quality_error or "accepted"
+            attempts_log.append(
+                {
+                    "attempt": str(attempt + 1),
+                    "user_prompt": current_user_prompt,
+                    "raw_response": raw_response or "(empty response)",
+                    "result": attempt_result,
+                }
+            )
             if quality_error is None:
                 break
 
@@ -145,7 +157,7 @@ def analyse(metrics: MetricsDict) -> InsightsDict:
         _LAST_PARSED_OUTPUT = json.dumps(insights, indent=2)
         return insights
     finally:
-        _write_log(system_prompt, final_user_prompt, raw_response, metrics)
+        _write_log(system_prompt, attempts_log, metrics)
 
 
 def _build_system_prompt() -> str:
@@ -158,6 +170,9 @@ def _build_system_prompt() -> str:
         "2. A snippet of visible page text.\n\n"
         "Rules you must follow:\n"
         "- Every insight must cite a specific metric value by name and number.\n"
+        "- Use the literal metric labels from the prompt, such as word_count, h1_count, "
+        "h2_count, h3_count, cta_count, internal_links, external_links, image_count, "
+        "missing_alt_pct, meta_title_len, and meta_desc_len.\n"
         "- Do not make observations that are not supported by the provided data.\n"
         "- Do not give generic advice.\n"
         "- Keep each analysis field to 1-2 concise sentences.\n"
@@ -184,8 +199,10 @@ internal_links: {metrics["internal_links"]}
 external_links: {metrics["external_links"]}
 image_count: {metrics["image_count"]}
 missing_alt_pct: {metrics["missing_alt_pct"]:.1f}%
-meta_title: "{metrics["meta_title"]}" ({metrics["meta_title_len"]} chars)
-meta_description: "{metrics["meta_description"]}" ({metrics["meta_desc_len"]} chars)
+meta_title: "{metrics["meta_title"]}"
+meta_title_len: {metrics["meta_title_len"]}
+meta_description: "{metrics["meta_description"]}"
+meta_desc_len: {metrics["meta_desc_len"]}
 fetch_method: {metrics["fetch_method"]}
 
 PAGE TEXT SNIPPET:
@@ -195,6 +212,7 @@ Keep the response concise:
 - Each analysis field: maximum 2 sentences
 - Each recommendation action: short and specific
 - Each recommendation reasoning: 1 sentence grounded in metrics
+- In every analysis field, include at least one literal metric label and value such as "word_count is 124" or "cta_count is 0"
 
 Return ONLY this JSON structure and do not add any extra keys:
 {{
@@ -213,6 +231,8 @@ Return ONLY this JSON structure and do not add any extra keys:
 
 def _call_api(system_prompt: str, user_prompt: str) -> str:
     """Call the configured model and return the raw response text."""
+    _configure_client()
+
     model = genai.GenerativeModel(
         model_name=GEMINI_MODEL,
         system_instruction=system_prompt,
@@ -307,9 +327,42 @@ def _parse_response(raw_response: str) -> InsightsDict:
     }
 
 
-def _write_log(system_prompt: str, user_prompt: str, raw_response: str, metrics: MetricsDict) -> None:
+def _write_log(system_prompt: str, attempts_log: list[dict[str, str]], metrics: MetricsDict) -> None:
     """Append a prompt log entry for the current run."""
     PROMPT_LOG_DIR.mkdir(parents=True, exist_ok=True)
+
+    attempt_sections: list[str] = []
+    if attempts_log:
+        for entry in attempts_log:
+            attempt_sections.extend(
+                [
+                    f"### Attempt {entry['attempt']}",
+                    f"**Result:** {entry['result']}",
+                    "#### User Prompt",
+                    "```text",
+                    entry["user_prompt"],
+                    "```",
+                    "#### Raw API Response",
+                    "```text",
+                    entry["raw_response"],
+                    "```",
+                ]
+            )
+    else:
+        attempt_sections.extend(
+            [
+                "### Attempt 1",
+                "**Result:** No API attempt recorded",
+                "#### User Prompt",
+                "```text",
+                "(no prompt recorded)",
+                "```",
+                "#### Raw API Response",
+                "```text",
+                "(empty response)",
+                "```",
+            ]
+        )
 
     log_entry = "\n".join(
         [
@@ -326,14 +379,7 @@ def _write_log(system_prompt: str, user_prompt: str, raw_response: str, metrics:
             "```text",
             system_prompt,
             "```",
-            "### User Prompt",
-            "```text",
-            user_prompt,
-            "```",
-            "### Raw API Response",
-            "```text",
-            raw_response or "(empty response)",
-            "```",
+            *attempt_sections,
             "### Parsed Output",
             "```json",
             _LAST_PARSED_OUTPUT or json.dumps(_empty_insights("No parsed output"), indent=2),
@@ -370,6 +416,14 @@ def _preview_texts(values: list[str], limit: int) -> str:
     return preview or "none detected"
 
 
+def _configure_client() -> None:
+    """Configure the Gemini client lazily so non-AI paths can still import this module."""
+    if not GEMINI_API_KEY:
+        raise RuntimeError("GEMINI_API_KEY is not set. Add it to the local .env file before running AI analysis.")
+
+    genai.configure(api_key=GEMINI_API_KEY)
+
+
 def _response_text(response: object) -> str:
     """Return the raw model text or raise if no text payload is present."""
     text = getattr(response, "text", "")
@@ -386,6 +440,7 @@ def _build_retry_user_prompt(base_prompt: str, reason: str) -> str:
         "RETRY INSTRUCTIONS:\n"
         f"- The previous response was rejected: {reason or 'invalid or low quality output'}.\n"
         "- Every section must explicitly reference the provided metric names and values.\n"
+        "- Use literal labels like word_count, h1_count, cta_count, missing_alt_pct, meta_title_len, or meta_desc_len.\n"
         "- Recommendations must be specific and actionable, with reasoning tied to metrics.\n"
         "- Keep every field concise so the JSON completes in full.\n"
         "- Do not include generic advice.\n"
@@ -416,7 +471,15 @@ def _quality_error(insights: InsightsDict, metrics: MetricsDict) -> str | None:
     """Reject structurally valid but shallow or ungrounded AI output."""
     section_rules = (
         ("seo_analysis", _metric_tokens(metrics["h1_count"], metrics["meta_title_len"], metrics["meta_desc_len"])),
-        ("messaging_clarity", _metric_tokens(metrics["word_count"], *metrics["h1_texts"][:3])),
+        (
+            "messaging_clarity",
+            _metric_tokens(
+                metrics["word_count"],
+                metrics["meta_desc_len"],
+                *metrics["h1_texts"][:3],
+                metrics["meta_description"],
+            ),
+        ),
         ("cta_usage", _metric_tokens(metrics["cta_count"], *metrics["cta_texts"][:5])),
         ("content_depth", _metric_tokens(metrics["word_count"], metrics["h2_count"], metrics["h3_count"])),
         (

@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 from textwrap import fill
+from typing import TYPE_CHECKING
 
-from ai import InsightsDict
 from config import (
     META_DESCRIPTION_TARGET_MAX,
     META_DESCRIPTION_TARGET_MIN,
@@ -17,6 +17,9 @@ from config import (
     THIN_CONTENT_WORD_COUNT,
 )
 from scraper import MetricsDict
+
+if TYPE_CHECKING:
+    from ai import InsightsDict
 
 _SECTION_RULE = "=" * 62
 _TEXT_WIDTH = 78

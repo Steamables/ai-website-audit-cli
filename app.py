@@ -25,13 +25,13 @@ def main(url: str) -> None:
     insights = analyse(metrics) if metrics["error"] is None else _skipped_insights()
     report = render(metrics, insights)
 
-    _display(metrics, insights)
+    _display(report)
     _write_outputs(url, metrics, insights, report)
 
 
-def _display(metrics: MetricsDict, insights: InsightsDict) -> None:
+def _display(report: str) -> None:
     """Render and print the final report."""
-    print(render(metrics, insights))
+    print(report)
 
 
 def _write_outputs(url: str, metrics: MetricsDict, insights: InsightsDict, report: str) -> None:
