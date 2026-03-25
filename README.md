@@ -2,7 +2,7 @@
 
 A CLI-based, AI-native website audit tool for single-page analysis. The system first extracts factual website metrics, then passes those grounded metrics into an AI layer that produces structured insights and prioritized recommendations. The scraper, AI layer, orchestration, and CLI rendering are kept deliberately separate because that separation is part of the core system design.
 
-This project was built to satisfy the assignment requirements defined in the documents under `docs/`, especially the emphasis on:
+This project was built to satisfy the assignment requirements for a grounded, CLI-based AI website audit tool, especially the emphasis on:
 
 - clean separation between scraping and AI analysis
 - structured, predictable outputs
@@ -66,7 +66,7 @@ Module responsibilities:
 | `display.py` | Render CLI output with metrics and AI insights clearly separated | Fetch data or call AI |
 | `config.py` | Store constants only | Hold orchestration logic |
 
-This structure follows the assignment manual and architecture workflow directly. The goal is not to create a large framework, but a disciplined, testable AI system with clear boundaries.
+This structure follows the assignment requirements directly. The goal is not to create a large framework, but a disciplined, testable AI system with clear boundaries.
 
 ## Why This Is AI-Native Instead of "Scrape Then Summarize"
 
@@ -183,11 +183,6 @@ AI-powered Website Audit Tool/
 |-- .env.example
 |-- README.md
 |-- docs/
-|   |-- AI Tool Assignment Strategy.md
-|   |-- AI-Native Software Engineer
-|   |-- Architecture_Workflow_v2.md
-|   |-- Assignment Manual.md
-|   |-- GPT Audit workflow improvments.md
 |   `-- Setup_Guide.md
 |-- output/
 |   `-- latest.json / latest.txt
@@ -293,7 +288,7 @@ The current implementation uses Gemini through `google-generativeai`, which is s
 
 ## Submission Notes
 
-This project intentionally prioritizes clarity, grounded AI behavior, and predictable outputs over extra features. The assignment documents explicitly frame the problem as an AI-system-design task, so the design choices here favor:
+This project intentionally prioritizes clarity, grounded AI behavior, and predictable outputs over extra features. The assignment itself frames the problem as an AI-system-design task, so the design choices here favor:
 
 - strict module boundaries
 - explicit data contracts
@@ -305,5 +300,3 @@ This project intentionally prioritizes clarity, grounded AI behavior, and predic
 
 - `docs/Setup_Guide.md` for detailed environment setup and usage
 - `prompt_logs/example_run.md` for the committed prompt-log deliverable
-- `docs/Architecture_Workflow_v2.md` for the implementation reference architecture
-- `docs/Assignment Manual.md` for the interpretation of what evaluators are looking for
