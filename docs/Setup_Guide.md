@@ -17,7 +17,7 @@ Recommended:
 - PowerShell
 - a fresh virtual environment inside the repo at `.venv`
 
-## Fresh Setup From Scratch
+## Main Setup Flow
 
 Run these commands from the project root:
 
@@ -36,7 +36,63 @@ GEMINI_API_KEY=your_real_key_here
 GEMINI_MODEL=gemini-2.5-flash-lite
 ```
 
-## If `.venv` Already Exists
+## Run The Tool
+
+Run a single-page audit:
+
+```powershell
+.\.venv\Scripts\python.exe app.py https://example.com
+```
+
+Examples:
+
+```powershell
+.\.venv\Scripts\python.exe app.py https://www.scrapethissite.com/pages/forms/
+.\.venv\Scripts\python.exe app.py https://www.scrapethissite.com/pages/ajax-javascript/
+```
+
+## Check The Output Files
+
+### `output/latest.json`
+
+Machine-readable export for downstream use. The shape is:
+
+```json
+{
+  "timestamp": "...",
+  "url": "...",
+  "metrics": { "...": "..." },
+  "insights": { "...": "..." }
+}
+```
+
+Use this when you want the audit result as structured data instead of terminal output.
+
+### `output/latest.txt`
+
+Human-readable snapshot of the latest CLI report. This mirrors what the terminal printed for the most recent run.
+
+### `prompt_logs/run.md`
+
+Append-only log of AI execution details:
+
+- URL
+- fetch method
+- parsed status
+- system prompt
+- each user prompt attempt
+- raw API responses
+- parsed output
+
+This is the main debugging and review artifact for the AI layer.
+
+### `prompt_logs/example_run.md`
+
+Committed sample deliverable showing a real prompt-log entry from a successful run.
+
+## If Needed
+
+### If `.venv` already exists
 
 If the local virtual environment is already present, only run:
 
@@ -80,21 +136,6 @@ Important: `playwright` requires a separate browser install step. `pip install p
 - documents the required environment variables
 - safe to share
 
-## Running the Tool
-
-Run a single-page audit:
-
-```powershell
-.\.venv\Scripts\python.exe app.py https://example.com
-```
-
-Examples:
-
-```powershell
-.\.venv\Scripts\python.exe app.py https://www.scrapethissite.com/pages/forms/
-.\.venv\Scripts\python.exe app.py https://www.scrapethissite.com/pages/ajax-javascript/
-```
-
 ## What Happens During a Run
 
 1. `app.py` validates the URL.
@@ -107,45 +148,6 @@ Examples:
 8. `display.py` prints factual metrics separately from AI insights.
 9. `app.py` writes output files.
 
-## Output Files
-
-### `output/latest.json`
-
-Machine-readable export for downstream use. The shape is:
-
-```json
-{
-  "timestamp": "...",
-  "url": "...",
-  "metrics": { "...": "..." },
-  "insights": { "...": "..." }
-}
-```
-
-Use this when you want the audit result as structured data instead of terminal output.
-
-### `output/latest.txt`
-
-Human-readable snapshot of the latest CLI report. This mirrors what the terminal printed for the most recent run.
-
-### `prompt_logs/run.md`
-
-Append-only log of AI execution details:
-
-- URL
-- fetch method
-- parsed status
-- system prompt
-- each user prompt attempt
-- raw API responses
-- parsed output
-
-This is the main debugging and review artifact for the AI layer.
-
-### `prompt_logs/example_run.md`
-
-Committed sample deliverable showing a real prompt-log entry from a successful run.
-
 ## Expected CLI Output Shape
 
 The terminal output is intentionally split into sections:
@@ -156,7 +158,7 @@ The terminal output is intentionally split into sections:
 
 This separation is required by the assignment and preserved in `display.py`.
 
-## Common Issues and Fixes
+## Troubleshooting
 
 ### Missing API Key
 
