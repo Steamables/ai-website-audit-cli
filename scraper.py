@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup, Tag
 from config import (
     CHROME_UA,
     PAGE_TEXT_SNIPPET_CHARS,
+    PLAYWRIGHT_TIMEOUT_MS,
     PLAYWRIGHT_TRIGGER_WORD_COUNT,
     REQUEST_TIMEOUT_SECONDS,
 )
@@ -79,18 +80,38 @@ class FetchError(Exception):
 def scrape(url: str) -> MetricsDict:
     """Fetch a URL and return the structured metrics contract."""
     try:
-        html = _fetch(url)
+        static_html = _fetch(url)
     except FetchError as exc:
         return _empty_metrics(url, str(exc))
 
-    metrics = _extract(html, url)
-    if metrics["word_count"] < PLAYWRIGHT_TRIGGER_WORD_COUNT and metrics["error"] is None:
-        metrics["error"] = (
-            "Static fetch returned insufficient content; "
-            "Playwright fallback will be added in the next step."
+    metrics = _extract(static_html, url)
+    if metrics["error"] is not None:
+        return metrics
+
+    if metrics["word_count"] >= PLAYWRIGHT_TRIGGER_WORD_COUNT:
+        return metrics
+
+    try:
+        rendered_html = _fetch_playwright(url)
+    except FetchError as exc:
+        error = str(exc)
+        fetch_method = "requests" if error.startswith("Playwright not available") else "playwright"
+        return _empty_metrics(url, error, fetch_method=fetch_method)
+
+    rendered_metrics = _extract(rendered_html, url)
+    if rendered_metrics["error"] is not None:
+        return _empty_metrics(url, rendered_metrics["error"], fetch_method="playwright")
+
+    if rendered_metrics["word_count"] < PLAYWRIGHT_TRIGGER_WORD_COUNT:
+        return _empty_metrics(
+            url,
+            "Could not extract meaningful content",
+            fetch_method="playwright",
         )
 
-    return metrics
+    rendered_metrics["fetch_method"] = "playwright"
+    return rendered_metrics
+
 
 
 def _fetch(url: str) -> str:
@@ -118,7 +139,33 @@ def _fetch(url: str) -> str:
 
 def _fetch_playwright(url: str) -> str:
     """Fetch rendered HTML using the Playwright fallback path."""
-    raise NotImplementedError("Playwright fallback is implemented in the next step.")
+    try:
+        from playwright.sync_api import Error as PlaywrightError
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        raise FetchError(
+            "Playwright not available - install with: playwright install chromium"
+        ) from exc
+
+    browser = None
+    try:
+        with sync_playwright() as playwright:
+            browser = playwright.chromium.launch(headless=True)
+            page = browser.new_page(user_agent=CHROME_UA)
+            page.goto(url, wait_until="networkidle", timeout=PLAYWRIGHT_TIMEOUT_MS)
+            html = page.content().strip()
+    except PlaywrightError as exc:
+        raise FetchError(f"Playwright fetch failed: {exc}") from exc
+    except Exception as exc:
+        raise FetchError(f"Playwright fetch failed: {exc}") from exc
+    finally:
+        if browser is not None:
+            browser.close()
+
+    if not html:
+        raise FetchError("Could not extract meaningful content")
+
+    return html
 
 
 def _extract(html: str, base_url: str) -> MetricsDict:
