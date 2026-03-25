@@ -279,12 +279,12 @@ The current implementation uses Gemini through `google-generativeai`, which is s
 
 ## What Would You Improve With More Time
 
-- add better operational logging such as retry count and execution time per run
-- add a small test suite for parser and AI validation edge cases
-- improve grounding checks to balance strictness with flexibility across more page types
-- add caching so repeated audits of the same URL do not refetch or re-run AI unnecessarily
-- support batch input or multi-page analysis while preserving the same module boundaries
-- move to a newer Google SDK once the project needs a more future-proof API layer
+- deploy the tool so it can be used without local setup
+- add a simple user interface where someone can paste in a URL instead of using only the CLI
+- let users audit a few important pages in one run instead of one page at a time
+- keep a history of past audits so teams can compare results over time
+- make the final report easier to share with cleaner export options for internal teams or clients
+- improve the presentation of results with clearer summaries and easier-to-scan output
 
 ## Submission Notes
 
