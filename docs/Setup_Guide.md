@@ -1,5 +1,7 @@
 # Setup Guide
 
+Run everything from the project root folder.
+
 This document is the operational companion to the main `README.md`. The README explains the product and architecture; this guide focuses on getting the project running, understanding the output artifacts, and avoiding common evaluator friction.
 
 ## Prerequisites
@@ -233,12 +235,3 @@ GEMINI_MODEL=gemini-2.5-flash-lite
 
 This matches the current local implementation and working setup for this repo.
 
-## Reference Docs
-
-If you want to trace the project back to the assignment intent, use these in order:
-
-1. `docs/AI-Native Software Engineer`
-2. `docs/Assignment Manual.md`
-3. `docs/Architecture_Workflow_v2.md`
-4. `docs/GPT Audit workflow improvments.md`
-5. `docs/AI Tool Assignment Strategy.md`
